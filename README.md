@@ -63,7 +63,7 @@ Before you start the experiment, you should download the USA road network from h
 
     **Run:** 
 
-   ​		**parameters: ** graph_file index_name
+   ​		**parameters:** graph_file index_name
       	 
 
    ```cmd
