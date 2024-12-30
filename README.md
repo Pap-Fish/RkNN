@@ -28,7 +28,6 @@ app_name graph_name objects_density user_density k query_times random output_dir
     For example:
 	./generate_query NY 0.001 0.001 10 1000 random ./NY
 
-
 Operation 4: RkNN query with TBUF
 Compile:  g++ graph.cpp TkNN.cpp TBUFexp.cpp -o TBUFexp -O3
 Run:  
@@ -37,14 +36,14 @@ parameter methodType:
 	1. default: Eager algorithm
 	2. corex: COREX algorithm
     3. td: TD-Query
-	4. branchopt: TBUF-Query
+	4. branchopt: ATD-Query
 For example:
     ./TBUFexp ./dataSet/NY-d.gr ./dataSet/NY-d.index ./dataSet/NY/NY-d.0.001-0.001.obj -q ./query/NY/NY-0.001-0.001.rknn-10.query branchopt ./result.txt
-
 
 Operation 5: RkNN query with SMPV
 Compile:  g++ graph.cpp SMPV.cpp TkNN.cpp SMPVExp.cpp -o SMPVExp -O3
 Run:  
+
 1. first run,  use the partition file
 app_name graph_name -b partition_file -q object_file index_file query_file log_file
    For example:

@@ -146,22 +146,31 @@ void readGraph(char *filename)
 }
 void traversal_BUTree(int p)
 {
-    if (chSize[p] > 0)
-        BUTree[p].resize(chSize[p], -1);
+    // if (chSize[p] > 0)
+    //     BUTree[p].resize(chSize[p], -1);
     for (int i = 0; i < chSize[p]; i++)
     {
         int child = ch[p][i];
         int chx = uniqueVertex[child];
         traversal_BUTree(child);
-        if (chSize[child] <= 1)
+        if (BUTree[child].size() > 1 || is_current_user[chx] == 1)
         {
-            if (is_current_user[chx] == 1)
-                BUTree[p][i] = child;
-            else if (chSize[ch[p][i]] != 0)
-                BUTree[p][i] = BUTree[child][0];
+            BUTree[p].push_back(child);
         }
-        else if (chSize[child] > 1)
-            BUTree[p][i] = child;
+        else if (BUTree[child].size() == 1)
+        {
+            BUTree[p].push_back(BUTree[child][0]);
+        }
+
+        // if (chSize[child] <= 1)
+        // {
+        //     if (is_current_user[chx] == 1)
+        //         BUTree[p][i] = child;
+        //     else if (chSize[ch[p][i]] != 0)
+        //         BUTree[p][i] = BUTree[child][0];
+        // }
+        // else if (chSize[child] > 1)
+        //     BUTree[p][i] = child;
     }
 }
 void construct_BUTree()
@@ -175,16 +184,30 @@ void construct_BUTree()
     traversal_BUTree(root);
 }
 
+int cntU;
 void get_user_subtree(int p, vector<int> &a)
 {
+    cntU++;
     int x = uniqueVertex[p];
     visit_mark[p] = query_mark_stamp;
     if (is_current_user[x] == 1)
         a.push_back(x);
-    for (int i = 0; i < chSize[p]; i++)
-        if (tknn.user_number[ch[p][i]] > 0)
-            get_user_subtree(ch[p][i], a);
+    for (int nextbu : BUTree[p])
+        if (tknn.user_number[nextbu] > 0)
+            get_user_subtree(nextbu, a);
 }
+
+// void get_user_subtree(int p, vector<int> &a)
+// {
+//     cntU++;
+//     int x = uniqueVertex[p];
+//     visit_mark[p] = query_mark_stamp;
+//     if (is_current_user[x] == 1)
+//         a.push_back(x);
+//     for (int i = 0; i < chSize[p]; i++)
+//         if (tknn.user_number[ch[p][i]] > 0)
+//             get_user_subtree(ch[p][i], a);
+// }
 
 bool knn_verify(int x, int target, int top_k)
 {
@@ -375,7 +398,10 @@ void explore_progenyBU(int p, int x, int top_k, vector<int> &res)
     for (int i = 0; i < posSize[p]; i++)
     {
         if (is_rknn[pos[p][i]] == 1)
+        {
             passport = true;
+            break;
+        }
     }
     if (is_current_user[v] == 1)
     {
@@ -389,28 +415,13 @@ void explore_progenyBU(int p, int x, int top_k, vector<int> &res)
     }
     if (!passport)
     {
-        if (is_rknn[v] == 1)
-        {
-            passport = true;
-        }
-        else
-        {
-            passport = verify_VertexCut(p, x, top_k);
-        }
-        if (!passport)
-        {
-            is_rknn[v] = knn_verify(v, x, top_k) ? 1 : 0;
-            if (is_rknn[v] == 1)
-                passport = true;
-        }
+        passport = verify_VertexCut(p, x, top_k);
     }
     if (passport)
     {
-        for (int i = 0; i < chSize[p]; i++)
+        for (int next_bu : BUTree[p])
         {
-            int next_branch = BUTree[p][i];
-            // if (next_branch != -1 && visit_mark[next_branch] != query_mark_stamp)
-            explore_progenyBU(next_branch, x, top_k, res);
+            explore_progenyBU(next_bu, x, top_k, res);
         }
     }
 }
@@ -420,7 +431,6 @@ vector<int> query_onTreeBranch(int x, int top_k)
     cnt_knns = 0;
     cnt_visit = 0;
     farest = 0;
-    deepest = 0;
     vector<int> res;
     res.clear();
     query_mark_stamp++;
@@ -431,8 +441,9 @@ vector<int> query_onTreeBranch(int x, int top_k)
     }
     int query_p = belong[x];
     visit_mark[query_p] = query_mark_stamp;
-    for (int i = 0; i < chSize[query_p]; i++)
-        explore_progenyBU(BUTree[query_p][i], x, top_k, res);
+    is_rknn[x] = 1;
+    for (int next_bu : BUTree[query_p])
+        explore_progenyBU(next_bu, x, top_k, res);
 
     int q = pa[query_p];
     bool passport;
@@ -459,7 +470,7 @@ vector<int> query_onTreeBranch(int x, int top_k)
                 res.push_back(v);
             }
         }
-        if (chSize[q] > 1)
+        if (chSize[q] > 1 && BUTree[q].size() > 0)
         {
             for (int i = 0; i < posSize[q]; i++)
             {
@@ -471,22 +482,21 @@ vector<int> query_onTreeBranch(int x, int top_k)
             }
             if (!passport)
             {
-                if (is_rknn[v] == -1)
-                    is_rknn[v] = knn_verify(v, x, top_k) ? 1 : 0;
-                if (is_rknn[v] == 1)
-                {
-                    passport = true;
-                }
-                else
+                // if (is_rknn[v] == -1)
+                //     is_rknn[v] = knn_verify(v, x, top_k) ? 1 : 0;
+                // if (is_rknn[v] == 1)
+                // {
+                //     passport = true;
+                // }
+                // else
                     passport = verify_VertexCut(q, x, top_k);
             }
             if (passport)
             {
-                for (int j = 0; j < chSize[q]; j++)
+                for (int next_bu : BUTree[q])
                 {
-                    if (visit_mark[ch[q][j]] == query_mark_stamp)
-                        continue;
-                    explore_progenyBU(BUTree[q][j], x, top_k, res);
+                    if (visit_mark[next_bu] != query_mark_stamp)
+                        explore_progenyBU(next_bu, x, top_k, res);
                 }
             }
             else
@@ -502,8 +512,8 @@ void explore_progenyBUOpt(int p, int x, int top_k, vector<int> &res)
 {
     if (stopflag || p == -1 || tknn.user_number[p] == 0)
         return;
-    if (height[p] > deepest)
-        deepest = height[p];
+    // if (height[p] > deepest)
+    //     deepest = height[p];
 
     visit_mark[p] = query_mark_stamp;
     int cmp = 0;
@@ -514,8 +524,10 @@ void explore_progenyBUOpt(int p, int x, int top_k, vector<int> &res)
     {
         if (is_rknn[pos[p][i]] == -1)
             cmp++;
-        if (is_rknn[pos[p][i]] == 1)
+        if (is_rknn[pos[p][i]] == 1){
             passport = true;
+            break;
+        }
     }
     if (tknn.user_number[p] <= cmp)
     {
@@ -541,40 +553,15 @@ void explore_progenyBUOpt(int p, int x, int top_k, vector<int> &res)
             res.push_back(v);
         }
     }
-    // int cnt_haveUser = 0;
-    // for (int i = 0; i < chSize[p]; i++)
-    // {
-    //     if (tknn.user_number[ch[p][i]] != 0)
-    //         cnt_haveUser++;
-    // }
-    // if (cnt_haveUser <= 1)
-    // {
-    //     passport = true;
-    // }
     if (!passport)
     {
-        if (is_rknn[v] == 1)
-        {
-            passport = true;
-        }
-        else
-        {
-            passport = verify_VertexCut(p, x, top_k);
-        }
-        if (!passport)
-        {
-            is_rknn[v] = knn_verify(v, x, top_k) ? 1 : 0;
-            if (is_rknn[v] == 1)
-                passport = true;
-        }
+        passport = verify_VertexCut(p, x, top_k);
     }
     if (passport)
     {
-        for (int i = 0; i < chSize[p]; i++)
+        for (int next_bu : BUTree[p])
         {
-            int next_branch = BUTree[p][i];
-            // if (next_branch != -1 && visit_mark[next_branch] != query_mark_stamp)
-            explore_progenyBUOpt(next_branch, x, top_k, res);
+            explore_progenyBUOpt(next_bu, x, top_k, res);
         }
     }
 }
@@ -584,7 +571,7 @@ vector<int> query_onTreeBranchOpt(int x, int top_k)
     cnt_knns = 0;
     cnt_visit = 0;
     farest = 0;
-    deepest = 0;
+    cntU = 0;
     vector<int> res;
     res.clear();
     query_mark_stamp++;
@@ -597,8 +584,8 @@ vector<int> query_onTreeBranchOpt(int x, int top_k)
     int query_p = belong[x];
     visit_mark[query_p] = query_mark_stamp;
     is_rknn[x] = 1;
-    for (int i = 0; i < chSize[query_p]; i++)
-        explore_progenyBUOpt(BUTree[query_p][i], x, top_k, res);
+    for (int next_bu : BUTree[query_p])
+        explore_progenyBUOpt(next_bu, x, top_k, res);
 
     int q = pa[query_p];
     bool passport;
@@ -624,18 +611,8 @@ vector<int> query_onTreeBranchOpt(int x, int top_k)
                 res.push_back(v);
             }
         }
-        if (chSize[q] > 1)
+        if (chSize[q] > 1 && BUTree[q].size() > 0)
         {
-            // int cnt_haveUser=0;
-            // for (int j = 0; j < chSize[q]; j++)
-            // {
-            //     if (visit_mark[ch[q][j]] == query_mark_stamp)
-            //         continue;
-            //     if (tknn.user_number[ch[q][j]] != 0)
-            //         cnt_haveUser++;
-            // }
-            // if(cnt_haveUser==0)
-            //     passport = true;
             for (int i = 0; i < posSize[q]; i++)
             {
                 if (is_rknn[pos[q][i]] == 1)
@@ -646,22 +623,21 @@ vector<int> query_onTreeBranchOpt(int x, int top_k)
             }
             if (!passport)
             {
-                if (is_rknn[v] == -1)
-                    is_rknn[v] = knn_verify(v, x, top_k) ? 1 : 0;
-                if (is_rknn[v] == 1)
-                {
-                    passport = true;
-                }
-                else
+                // if (is_rknn[v] == -1)
+                //     is_rknn[v] = knn_verify(v, x, top_k) ? 1 : 0;
+                // if (is_rknn[v] == 1)
+                // {
+                //     passport = true;
+                // }
+                // else
                     passport = verify_VertexCut(q, x, top_k);
             }
             if (passport)
             {
-                for (int j = 0; j < chSize[q]; j++)
+                for (int next_bu : BUTree[q])
                 {
-                    if (visit_mark[ch[q][j]] == query_mark_stamp)
-                        continue;
-                    explore_progenyBUOpt(BUTree[q][j], x, top_k, res);
+                    if (visit_mark[next_bu] != query_mark_stamp)
+                        explore_progenyBUOpt(next_bu, x, top_k, res);
                 }
             }
             else
@@ -723,7 +699,7 @@ vector<int> query_onTreeTD(int x, int top_k)
     is_rknn[x] = 1;
     visit_mark[query_p] = query_mark_stamp;
     for (int i = 0; i < chSize[query_p]; i++)
-        explore_TD(BUTree[query_p][i], x, top_k, res);
+        explore_TD(ch[query_p][i], x, top_k, res);
 
     int q = pa[query_p];
     bool passport;
@@ -803,6 +779,7 @@ void computeIndexSize()
     long long total_H2H = total_data + H2H_data;
     float denominator = 1024 * 1024 * 1024;
     float denominator2 = 1024 * 1024;
+    printf("TD size: %0.3lfGB = %0.3lfMB\n", td_data * 4.0 / denominator, td_data * 4.0 / denominator2);
     printf("BU-Index size: %0.3lfGB = %0.3lfMB\n", total_data * 4.0 / denominator, total_data * 4.0 / denominator2);
     printf("BU-Index with H2H size: %0.3lfGB = %0.3lfMB\n", total_H2H * 4.0 / denominator, total_H2H * 4.0 / denominator2);
     printf("max tree width: %d\n", max_w);
@@ -888,12 +865,13 @@ int main(int argc, char *argv[])
     // FILE *fId = fopen(BUTimeFile, "a");
     // fprintf(fId, "DataSet: %s, BU-Index Build time: %.6lf ms\n", argv[1], (end_time - start_time) * 1e3);
     // fclose(fId);
+    // computeIndexSize();
     // return 0;
 
     // printTree();
     // printBUTree();
     // test();
-    // computeIndexSize();
+
 
     is_rknn = (int *)malloc(sizeof(int) * (n + 1));
 
@@ -936,7 +914,7 @@ int main(int argc, char *argv[])
         double start_time = GetTime();
         int cnt_oot = 0;
         int barWidth = 100;
-        int cnt_ttt = 0;
+        // int cnt_ttt = 0;
         auto boundQuery = [&](int x, int k)
         {
             if (strcmp(query_type, "branch") == 0)
@@ -1012,7 +990,6 @@ int main(int argc, char *argv[])
             //     cnt_ttt++;
 
             pfarest.push_back(farest);
-
             time_array.push_back(_end_time - _start_time);
             knncalls_cnt.push_back(cnt_knns);
             ave_size.push_back(res.size());
@@ -1028,7 +1005,7 @@ int main(int argc, char *argv[])
                     printf("(%d) ", res[j]);
                 printf("\n");
             }
-             // printVector(x, k, res);
+            // printVector(x, k, res);
         }
         printf("\n");
 
@@ -1039,6 +1016,7 @@ int main(int argc, char *argv[])
         printf("Average farest visited vertex distance: %d\n", get_mean_int(pfarest));
         printf("out of time: %d\n", cnt_oot);
         printf("Average result size: %d\n", get_mean_int(ave_size));
+
 
         // output part
         FILE *fre;
